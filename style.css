@@ -69,24 +69,28 @@
     border-bottom: 1px solid #444;
 }
 
-/* 快捷回复项样式 */
+/* 快捷回复项样式 - 修改为灰色背景、白色字体、居中对齐、扁平化 */
 .quick-reply-item {
-    padding: 5px 8px;
-    margin: 4px 0;
-    background-color: rgba(60, 60, 60, 0.7);
+    display: block;
+    width: 100%;
+    padding: 8px 10px;
+    margin: 8px 0;
+    background-color: #555555;
+    color: white;
     border-radius: 4px;
     cursor: pointer;
     transition: background-color 0.2s;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    text-align: center;
+    border: none;
+    box-shadow: none;
+    font-size: 14px;
 }
 
 .quick-reply-item:hover {
-    background-color: rgba(100, 100, 100, 0.9);
+    background-color: #666666;
 }
 
-/* 滚动条样式 */
+/* 滚动条样式 - 修改为紫罗兰色 */
 .quick-reply-list::-webkit-scrollbar {
     width: 6px;
 }
@@ -97,12 +101,12 @@
 }
 
 .quick-reply-list::-webkit-scrollbar-thumb {
-    background: rgba(100, 100, 100, 0.5);
+    background: #8a2be2; /* 紫罗兰色 */
     border-radius: 3px;
 }
 
 .quick-reply-list::-webkit-scrollbar-thumb:hover {
-    background: rgba(120, 120, 120, 0.7);
+    background: #9932cc; /* 深紫罗兰色，悬停时稍微变深 */
 }
 
 /* 空列表提示 */
