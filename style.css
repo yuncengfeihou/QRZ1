@@ -4,11 +4,6 @@
     overflow: hidden !important;
 }
 
-/* 快速回复按钮样式 - 保留但隐藏 */
-#quick-reply-menu-button {
-    display: none;
-}
-
 /* --- 火箭按钮 --- */
 #quick-reply-rocket-button {
     color: #a0a0a0; /* 默认颜色：灰色 */
