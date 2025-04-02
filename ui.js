@@ -1,18 +1,19 @@
 // ui.js
 import * as Constants from './constants.js';
+import { handleQuickReplyClick } from './events.js';
 import { fetchQuickReplies } from './api.js';
 import { sharedState } from './state.js';
-import { handleQuickReplyClick } from './events.js';
 
 /**
- * Creates the rocket button to be placed next to the send button.
- * @returns {HTMLElement} The created rocket button element.
+ * Creates the main quick reply button (legacy, kept for reference).
+ * @returns {HTMLElement} The created button element.
  */
-export function createRocketButton() {
-    const button = document.createElement('div');
-    button.id = Constants.ID_ROCKET_BUTTON;
-    button.className = 'fa-solid fa-rocket interactable secondary-button';
-    button.title = '打开快速回复菜单';
+export function createMenuButton() {
+    // This function is kept for reference but no longer used
+    const button = document.createElement('button');
+    button.id = Constants.ID_BUTTON;
+    button.type = 'button';
+    button.innerText = '[快速回复]';
     button.setAttribute('aria-haspopup', 'true');
     button.setAttribute('aria-expanded', 'false');
     button.setAttribute('aria-controls', Constants.ID_MENU);
@@ -24,81 +25,81 @@ export function createRocketButton() {
  * @returns {HTMLElement} The created menu element.
  */
 export function createMenuElement() {
-    // Create main menu container
     const menu = document.createElement('div');
     menu.id = Constants.ID_MENU;
-    menu.style.display = 'none';
     menu.setAttribute('role', Constants.ARIA_ROLE_MENU);
+    menu.tabIndex = -1;
+    menu.style.display = 'none';
 
-    // Create menu inner container (for flex layout)
-    const menuContainer = document.createElement('div');
-    menuContainer.className = Constants.CLASS_MENU_CONTAINER;
-    menu.appendChild(menuContainer);
+    const container = document.createElement('div');
+    container.className = Constants.CLASS_MENU_CONTAINER;
 
-    // Create chat replies column
-    const chatReplies = document.createElement('div');
-    chatReplies.id = Constants.ID_CHAT_LIST_CONTAINER;
-    chatReplies.className = Constants.CLASS_LIST;
-    chatReplies.setAttribute('role', Constants.ARIA_ROLE_GROUP);
+    // Chat quick replies section
+    const chatListContainer = document.createElement('div');
+    chatListContainer.id = Constants.ID_CHAT_LIST_CONTAINER;
+    chatListContainer.className = Constants.CLASS_LIST;
+    chatListContainer.setAttribute('role', Constants.ARIA_ROLE_GROUP);
 
-    // Add title to chat replies
     const chatTitle = document.createElement('div');
     chatTitle.className = Constants.CLASS_LIST_TITLE;
-    chatTitle.textContent = '聊天回复';
-    chatReplies.appendChild(chatTitle);
-
-    // Container for chat quick reply items
+    chatTitle.textContent = '聊天快捷回复';
+    
     const chatItems = document.createElement('div');
     chatItems.id = Constants.ID_CHAT_ITEMS;
-    chatReplies.appendChild(chatItems);
 
-    // Create global replies column
-    const globalReplies = document.createElement('div');
-    globalReplies.id = Constants.ID_GLOBAL_LIST_CONTAINER;
-    globalReplies.className = Constants.CLASS_LIST;
-    globalReplies.setAttribute('role', Constants.ARIA_ROLE_GROUP);
+    chatListContainer.appendChild(chatTitle);
+    chatListContainer.appendChild(chatItems);
 
-    // Add title to global replies
+    // Global quick replies section
+    const globalListContainer = document.createElement('div');
+    globalListContainer.id = Constants.ID_GLOBAL_LIST_CONTAINER;
+    globalListContainer.className = Constants.CLASS_LIST;
+    globalListContainer.setAttribute('role', Constants.ARIA_ROLE_GROUP);
+
     const globalTitle = document.createElement('div');
     globalTitle.className = Constants.CLASS_LIST_TITLE;
-    globalTitle.textContent = '全局回复';
-    globalReplies.appendChild(globalTitle);
-
-    // Container for global quick reply items
+    globalTitle.textContent = '全局快捷回复';
+    
     const globalItems = document.createElement('div');
     globalItems.id = Constants.ID_GLOBAL_ITEMS;
-    globalReplies.appendChild(globalItems);
 
-    // Add both columns to the menu container
-    menuContainer.appendChild(chatReplies);
-    menuContainer.appendChild(globalReplies);
+    globalListContainer.appendChild(globalTitle);
+    globalListContainer.appendChild(globalItems);
+
+    // Append sections to container
+    container.appendChild(chatListContainer);
+    container.appendChild(globalListContainer);
+    menu.appendChild(container);
 
     return menu;
 }
 
 /**
- * Creates an individual quick reply item (button).
- * @param {Object} quickReply - Quick reply data with label, message, and setName.
- * @returns {HTMLButtonElement} The created quick reply item.
+ * Creates a single quick reply item.
+ * @param {object} reply - The quick reply data
+ * @returns {HTMLElement} The button element
  */
-export function createQuickReplyItem(quickReply) {
+export function createQuickReplyItem(reply) {
     const item = document.createElement('button');
     item.className = Constants.CLASS_ITEM;
-    item.textContent = quickReply.label;
     item.setAttribute('role', Constants.ARIA_ROLE_MENUITEM);
-    item.setAttribute('title', quickReply.message);
-    item.dataset.setName = quickReply.setName;
-    item.dataset.label = quickReply.label;
+    item.dataset.setName = reply.setName;
+    item.dataset.label = reply.label;
+    item.title = reply.message.length > 50 ? reply.message.slice(0, 50) + '...' : reply.message;
+    item.textContent = reply.label;
+    
+    // Add click handler directly to this element
     item.addEventListener('click', handleQuickReplyClick);
+    
     return item;
 }
 
 /**
- * Creates a "no items" placeholder element.
- * @param {string} message - The message to display.
- * @returns {HTMLElement} The created placeholder element.
+ * Creates an empty placeholder element.
+ * @param {string} message - The message to display
+ * @returns {HTMLElement} The empty placeholder element
  */
-export function createEmptyIndicator(message) {
+export function createEmptyPlaceholder(message) {
     const empty = document.createElement('div');
     empty.className = Constants.CLASS_EMPTY;
     empty.textContent = message;
@@ -106,9 +107,9 @@ export function createEmptyIndicator(message) {
 }
 
 /**
- * Renders quick replies into their respective containers.
- * @param {Array<Object>} chatReplies - List of chat-specific quick replies.
- * @param {Array<Object>} globalReplies - List of global quick replies.
+ * Renders quick replies into the menu containers.
+ * @param {Array<object>} chatReplies - Chat-specific quick replies
+ * @param {Array<object>} globalReplies - Global quick replies
  */
 export function renderQuickReplies(chatReplies, globalReplies) {
     const { chatItemsContainer, globalItemsContainer } = sharedState.domElements;
@@ -118,24 +119,22 @@ export function renderQuickReplies(chatReplies, globalReplies) {
     chatItemsContainer.innerHTML = '';
     globalItemsContainer.innerHTML = '';
 
-    // Render chat quick replies
-    if (chatReplies && chatReplies.length > 0) {
+    // Render chat replies
+    if (chatReplies.length > 0) {
         chatReplies.forEach(reply => {
-            const item = createQuickReplyItem(reply);
-            chatItemsContainer.appendChild(item);
+            chatItemsContainer.appendChild(createQuickReplyItem(reply));
         });
     } else {
-        chatItemsContainer.appendChild(createEmptyIndicator('当前聊天没有可用的快捷回复'));
+        chatItemsContainer.appendChild(createEmptyPlaceholder('没有可用的聊天快捷回复'));
     }
 
-    // Render global quick replies
-    if (globalReplies && globalReplies.length > 0) {
+    // Render global replies
+    if (globalReplies.length > 0) {
         globalReplies.forEach(reply => {
-            const item = createQuickReplyItem(reply);
-            globalItemsContainer.appendChild(item);
+            globalItemsContainer.appendChild(createQuickReplyItem(reply));
         });
     } else {
-        globalItemsContainer.appendChild(createEmptyIndicator('没有可用的全局快捷回复'));
+        globalItemsContainer.appendChild(createEmptyPlaceholder('没有可用的全局快捷回复'));
     }
 }
 
@@ -155,6 +154,7 @@ export function updateMenuVisibilityUI() {
 
         menu.style.display = 'block';
         rocketButton.setAttribute('aria-expanded', 'true');
+        // Add active class for styling
         rocketButton.classList.add('active');
 
         // Optional: Focus the first item in the menu for keyboard navigation
@@ -163,6 +163,7 @@ export function updateMenuVisibilityUI() {
     } else {
         menu.style.display = 'none';
         rocketButton.setAttribute('aria-expanded', 'false');
+        // Remove active class
         rocketButton.classList.remove('active');
     }
 }
