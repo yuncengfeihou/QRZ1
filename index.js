@@ -2,7 +2,7 @@
 import { extension_settings } from "../../../extensions.js";
 import * as Constants from './constants.js';
 import { sharedState } from './state.js';
-import { createMenuButton, createMenuElement } from './ui.js';
+import { createMenuElement, createRocketButton } from './ui.js';
 import { createSettingsHtml, loadAndApplySettings } from './settings.js';
 import { setupEventListeners } from './events.js';
 
@@ -12,19 +12,28 @@ import { setupEventListeners } from './events.js';
 function initializePlugin() {
     console.log(`[${Constants.EXTENSION_NAME}] Initializing...`);
 
-    // Create core UI elements
-    const button = createMenuButton();
+    // Create menu element
     const menu = createMenuElement();
 
+    // Find the send button to place our rocket button next to it
+    const sendButton = $('#send_but');
+    if (sendButton.length === 0) {
+        console.error(`[${Constants.EXTENSION_NAME}] Could not find send button to attach rocket button`);
+        return;
+    }
+
+    // Create and inject the rocket button before the send button
+    const rocketButton = createRocketButton();
+    sendButton.before(rocketButton);
+
     // Store references in shared state
-    sharedState.domElements.button = button;
+    sharedState.domElements.rocketButton = rocketButton;
     sharedState.domElements.menu = menu;
     sharedState.domElements.chatItemsContainer = menu.querySelector(`#${Constants.ID_CHAT_ITEMS}`);
     sharedState.domElements.globalItemsContainer = menu.querySelector(`#${Constants.ID_GLOBAL_ITEMS}`);
     sharedState.domElements.settingsDropdown = document.getElementById(Constants.ID_SETTINGS_ENABLED_DROPDOWN); // Get after settings HTML is added
 
-    // Append elements to the body
-    document.body.appendChild(button);
+    // Append menu to the body
     document.body.appendChild(menu);
 
     // Load initial settings state and apply it to UI
@@ -35,7 +44,6 @@ function initializePlugin() {
 
     console.log(`[${Constants.EXTENSION_NAME}] Initialization complete.`);
 }
-
 
 // --- SillyTavern Extension Entry Point ---
 jQuery(async () => {
