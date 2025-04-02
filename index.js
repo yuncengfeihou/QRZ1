@@ -4,8 +4,6 @@ import { extension_settings } from "../../../extensions.js";
 const EXTENSION_NAME = "quick-reply-menu";
 
 // 存储快捷回复数据
-let chatQuickReplies = [];
-let globalQuickReplies = [];
 let menuVisible = false;
 let dataNeedsUpdate = true; // 数据更新标志，初始为 true
 
@@ -85,19 +83,17 @@ function showQuickReplyMenu() {
     const themeToggleButton = document.getElementById('quick-reply-theme-toggle-button');
 
     if (dataNeedsUpdate) {
-        console.log('Fetching quick replies...');
-        updateQuickReplies();
+        console.log(`[${EXTENSION_NAME}] Fetching quick replies...`);
+        const quickReplies = fetchQuickReplies();
+        renderQuickReplies(quickReplies.chat, quickReplies.global);
         dataNeedsUpdate = false;
     } else {
-        console.log('Using cached quick replies...');
+        console.log(`[${EXTENSION_NAME}] Using cached quick replies...`);
     }
-
-    renderQuickReplies();
 
     menu.style.display = 'block';
     closeButton.style.display = 'block';
-    themeToggleButton.style.display = 'block'; // 确保这行代码执行
-    console.log('Theme toggle button display:', themeToggleButton.style.display); // 添加调试日志
+    themeToggleButton.style.display = 'block';
     menuVisible = true;
 }
 
@@ -107,41 +103,34 @@ function showQuickReplyMenu() {
 function hideQuickReplyMenu() {
     const menu = document.getElementById('quick-reply-menu');
     const closeButton = document.getElementById('quick-reply-close-button');
-    const themeToggleButton = document.getElementById('quick-reply-theme-toggle-button'); // 获取切换按钮
+    const themeToggleButton = document.getElementById('quick-reply-theme-toggle-button');
     menu.style.display = 'none';
-    closeButton.style.display = 'none'; // 隐藏关闭按钮
-    themeToggleButton.style.display = 'none'; // 隐藏切换按钮
+    closeButton.style.display = 'none';
+    themeToggleButton.style.display = 'none';
     menuVisible = false;
-    // menu.classList.remove('light-theme'); // 可选：每次关闭时重置为暗色主题
 }
 
 /**
- * 获取并更新当前可用的快捷回复（不直接渲染）
+ * 获取聊天和全局快捷回复
+ * @returns {{chat: Array, global: Array}} 包含聊天和全局快捷回复的对象
  */
-function updateQuickReplies() {
+function fetchQuickReplies() {
+    const chatReplies = [];
+    const globalReplies = [];
+    const chatQrLabels = new Set(); // 用于跟踪标签避免在全局中重复
+
     if (!window.quickReplyApi) {
-        console.error(`[${EXTENSION_NAME}] Quick Reply API not found! Cannot fetch replies.`);
-        chatQuickReplies = [];
-        globalQuickReplies = [];
-        return;
+        console.error(`[${EXTENSION_NAME}] Quick Reply API (window.quickReplyApi) not found! Cannot fetch replies.`);
+        return { chat: [], global: [] };
     }
 
     const qrApi = window.quickReplyApi;
-    
-    // --- 新增检查 ---
+
     // 检查 Quick Reply v2 扩展本身是否启用
-    // 只有明确为 false 才算禁用
     if (!qrApi.settings || qrApi.settings.isEnabled === false) {
         console.log(`[${EXTENSION_NAME}] Core Quick Reply v2 is disabled. Skipping reply fetch.`);
-        chatQuickReplies = [];
-        globalQuickReplies = [];
-        return;
+        return { chat: [], global: [] };
     }
-    // --- 检查结束 ---
-    
-    chatQuickReplies = [];
-    globalQuickReplies = [];
-    const chatQrLabels = new Set();
 
     try {
         // 获取聊天快捷回复
@@ -150,7 +139,7 @@ function updateQuickReplies() {
                 if (setLink?.isVisible && setLink.set?.qrList) {
                     setLink.set.qrList.forEach(qr => {
                         if (qr && !qr.isHidden && qr.label) {
-                            chatQuickReplies.push({
+                            chatReplies.push({
                                 setName: setLink.set.name || 'Unknown Set',
                                 label: qr.label,
                                 message: qr.message || '(无消息内容)'
@@ -169,9 +158,9 @@ function updateQuickReplies() {
             qrApi.settings.config.setList.forEach(setLink => {
                 if (setLink?.isVisible && setLink.set?.qrList) {
                     setLink.set.qrList.forEach(qr => {
-                        // 仅添加非隐藏且标签不在聊天回复中存在的项
+                        // 只有在不隐藏且标签不存在于聊天回复中时才添加
                         if (qr && !qr.isHidden && qr.label && !chatQrLabels.has(qr.label)) {
-                            globalQuickReplies.push({
+                            globalReplies.push({
                                 setName: setLink.set.name || 'Unknown Set',
                                 label: qr.label,
                                 message: qr.message || '(无消息内容)'
@@ -184,56 +173,65 @@ function updateQuickReplies() {
             console.warn(`[${EXTENSION_NAME}] Could not find config.setList in quickReplyApi settings.`);
         }
 
-        console.log(`[${EXTENSION_NAME}] Fetched Quick Replies - Chat: ${chatQuickReplies.length}, Global: ${globalQuickReplies.length}`);
+        console.log(`[${EXTENSION_NAME}] Fetched Replies - Chat: ${chatReplies.length}, Global: ${globalReplies.length}`);
+
     } catch (error) {
         console.error(`[${EXTENSION_NAME}] Error fetching quick replies:`, error);
-        chatQuickReplies = [];
-        globalQuickReplies = [];
+        return { chat: [], global: [] };
     }
+
+    return { chat: chatReplies, global: globalReplies };
 }
 
 /**
- * 渲染快捷回复到菜单 (使用 DocumentFragment 优化)
+ * 渲染快捷回复到菜单
+ * @param {Array} chatReplies 聊天快捷回复数组
+ * @param {Array} globalReplies 全局快捷回复数组
  */
-function renderQuickReplies() {
+function renderQuickReplies(chatReplies, globalReplies) {
     const chatContainer = document.getElementById('chat-qr-items');
     const globalContainer = document.getElementById('global-qr-items');
 
+    // 清空容器
     chatContainer.innerHTML = '';
     globalContainer.innerHTML = '';
 
-    const chatFragment = document.createDocumentFragment();
-    const globalFragment = document.createDocumentFragment();
+    // 渲染聊天快捷回复
+    renderList(chatContainer, chatReplies, "没有可用的聊天快捷回复");
+    
+    // 渲染全局快捷回复
+    renderList(globalContainer, globalReplies, "没有可用的全局快捷回复");
+}
 
-    if (chatQuickReplies.length > 0) {
-        chatQuickReplies.forEach(qr => {
-            const item = createQuickReplyItem(qr);
-            chatFragment.appendChild(item);
-        });
-        chatContainer.appendChild(chatFragment);
-    } else {
-        chatContainer.innerHTML = '<div class="quick-reply-empty">没有可用的聊天快捷回复</div>';
-    }
+/**
+ * 渲染回复列表到指定容器
+ * @param {HTMLElement} container 要渲染到的容器
+ * @param {Array} replies 回复数组
+ * @param {string} emptyMessage 列表为空时显示的消息
+ */
+function renderList(container, replies, emptyMessage) {
+    if (!container) return;
 
-    if (globalQuickReplies.length > 0) {
-        globalQuickReplies.forEach(qr => {
-            const item = createQuickReplyItem(qr);
-            globalFragment.appendChild(item);
+    if (replies.length > 0) {
+        const fragment = document.createDocumentFragment();
+        replies.forEach(qr => {
+            fragment.appendChild(createQuickReplyItem(qr));
         });
-        globalContainer.appendChild(globalFragment);
+        container.appendChild(fragment);
     } else {
-        globalContainer.innerHTML = '<div class="quick-reply-empty">没有可用的全局快捷回复</div>';
+        container.innerHTML = `<div class="quick-reply-empty">${emptyMessage}</div>`;
     }
 }
 
 /**
- * 辅助函数：创建单个快捷回复项的 DOM 元素
+ * 创建单个快捷回复项
+ * @param {Object} qr 快捷回复对象
+ * @returns {HTMLElement} 创建的DOM元素
  */
 function createQuickReplyItem(qr) {
     const item = document.createElement('div');
     item.className = 'quick-reply-item';
     item.innerText = qr.label;
-    // Tooltip显示更长的消息预览
     const fullMessagePreview = `来自 "${qr.setName}":\n${qr.message}`;
     item.title = fullMessagePreview;
     item.addEventListener('click', () => {
@@ -245,6 +243,8 @@ function createQuickReplyItem(qr) {
 
 /**
  * 触发指定的快捷回复
+ * @param {string} setName 集合名称
+ * @param {string} label 标签名称
  */
 function triggerQuickReply(setName, label) {
     if (!window.quickReplyApi) {
@@ -252,18 +252,16 @@ function triggerQuickReply(setName, label) {
         return;
     }
 
-    // --- 新增检查 ---
-    // 触发前也检查主 Quick Reply v2 是否启用
+    // 触发前检查主 Quick Reply v2 是否启用
     if (!window.quickReplyApi.settings || window.quickReplyApi.settings.isEnabled === false) {
         console.log(`[${EXTENSION_NAME}] Core Quick Reply v2 is disabled. Cannot trigger reply.`);
         return;
     }
-    // --- 检查结束 ---
 
     console.log(`[${EXTENSION_NAME}] Triggering Quick Reply: "${setName}.${label}"`);
     try {
         window.quickReplyApi.executeQuickReply(setName, label)
-            .then(result => {
+            .then(() => {
                 console.log(`[${EXTENSION_NAME}] Quick Reply "${setName}.${label}" executed successfully.`);
             })
             .catch(error => {
