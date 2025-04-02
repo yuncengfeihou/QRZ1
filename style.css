@@ -12,7 +12,7 @@
     height: var(--buttons-bar-height);      /* 高度与按钮栏一致 */
     display: flex;         /* 使用 Flexbox 布局 */
     align-items: center;   /* 垂直居中图标 */
-    margin-right: 8px;     /* 右边距 */
+    margin-right: 4px;     /* 右边距 */
     cursor: pointer;       /* 鼠标样式：手型 */
     transition: color 0.2s;/* 颜色变化过渡效果 */
 }
