@@ -1,5 +1,3 @@
-// file_2/index.js (Refactored)
-
 import { extension_settings } from "../../../extensions.js";
 
 // 插件名称常量
@@ -15,7 +13,6 @@ let dataNeedsUpdate = true; // 数据更新标志，初始为 true
  * 初始化快速回复菜单及相关按钮
  */
 function initQuickReplyControls() {
-    // --- UI 创建部分保持不变 ---
     // 创建关闭按钮
     const quickReplyCloseButton = document.createElement('div');
     quickReplyCloseButton.id = 'quick-reply-close-button';
@@ -49,7 +46,6 @@ function initQuickReplyControls() {
     `;
     document.body.appendChild(quickReplyMenu);
 
-    // --- 事件绑定部分保持不变 ---
     // 绑定关闭按钮点击事件
     quickReplyCloseButton.addEventListener('click', hideQuickReplyMenu);
 
@@ -63,15 +59,15 @@ function initQuickReplyControls() {
     document.addEventListener('click', function(event) {
         const menu = document.getElementById('quick-reply-menu');
         const closeButton = document.getElementById('quick-reply-close-button');
-        const toggleButton = document.getElementById('quick-reply-theme-toggle-button');
+        const toggleButton = document.getElementById('quick-reply-theme-toggle-button'); // 获取切换按钮
         const rocketButton = document.getElementById('quick-reply-rocket-button');
 
         if (menuVisible &&
             event.target !== menu &&
             !menu.contains(event.target) &&
-            event.target !== closeButton &&
-            event.target !== toggleButton &&
-            (!rocketButton || event.target !== rocketButton)
+            event.target !== closeButton && // 不要因为点击关闭按钮而触发
+            event.target !== toggleButton && // 不要因为点击切换按钮而触发
+            (!rocketButton || event.target !== rocketButton) // 不要因为点击火箭按钮而触发
            ) {
             hideQuickReplyMenu();
         }
@@ -79,7 +75,7 @@ function initQuickReplyControls() {
 }
 
 /**
- * 显示快速回复菜单 (逻辑不变)
+ * 显示快速回复菜单
  */
 function showQuickReplyMenu() {
     if (menuVisible) return;
@@ -89,98 +85,94 @@ function showQuickReplyMenu() {
     const themeToggleButton = document.getElementById('quick-reply-theme-toggle-button');
 
     if (dataNeedsUpdate) {
-        console.log(`[${EXTENSION_NAME}] Fetching quick replies...`);
-        updateQuickReplies(); // 调用重构后的函数
+        console.log('Fetching quick replies...');
+        updateQuickReplies();
         dataNeedsUpdate = false;
     } else {
-        console.log(`[${EXTENSION_NAME}] Using cached quick replies...`);
+        console.log('Using cached quick replies...');
     }
 
-    renderQuickReplies(); // 渲染函数不变
+    renderQuickReplies();
 
     menu.style.display = 'block';
     closeButton.style.display = 'block';
-    themeToggleButton.style.display = 'block';
-    console.log(`[${EXTENSION_NAME}] Theme toggle button display:`, themeToggleButton.style.display);
+    themeToggleButton.style.display = 'block'; // 确保这行代码执行
+    console.log('Theme toggle button display:', themeToggleButton.style.display); // 添加调试日志
     menuVisible = true;
 }
 
-
 /**
- * 隐藏快速回复菜单 (逻辑不变)
+ * 隐藏快速回复菜单
  */
 function hideQuickReplyMenu() {
     const menu = document.getElementById('quick-reply-menu');
     const closeButton = document.getElementById('quick-reply-close-button');
-    const themeToggleButton = document.getElementById('quick-reply-theme-toggle-button');
+    const themeToggleButton = document.getElementById('quick-reply-theme-toggle-button'); // 获取切换按钮
     menu.style.display = 'none';
-    closeButton.style.display = 'none';
-    themeToggleButton.style.display = 'none';
+    closeButton.style.display = 'none'; // 隐藏关闭按钮
+    themeToggleButton.style.display = 'none'; // 隐藏切换按钮
     menuVisible = false;
-    // menu.classList.remove('light-theme'); // 可选
+    // menu.classList.remove('light-theme'); // 可选：每次关闭时重置为暗色主题
 }
 
 /**
- * 获取并更新当前可用的快捷回复（使用 file_1 的检测逻辑重构）
+ * 获取并更新当前可用的快捷回复（不直接渲染）
  */
 function updateQuickReplies() {
-    // 重置数据
-    chatQuickReplies = [];
-    globalQuickReplies = [];
-    const chatQrLabels = new Set(); // 用于全局去重
-
-    // 1. 检查 API 是否存在
     if (!window.quickReplyApi) {
-        console.error(`[${EXTENSION_NAME}] Quick Reply API (window.quickReplyApi) not found! Cannot fetch replies.`);
-        return; // 无法获取，直接返回
-    }
-
-    const qrApi = window.quickReplyApi;
-
-    // 2. 检查 Quick Reply v2 主插件是否启用
-    //    (注意：isEnabled=true 或 undefined 都视为启用)
-    if (!qrApi.settings || qrApi.settings.isEnabled === false) {
-        console.log(`[${EXTENSION_NAME}] Core Quick Reply v2 is disabled. Skipping reply fetch.`);
-        // 清空数据（虽然已在开头重置，这里再次确保）并返回
+        console.error(`[${EXTENSION_NAME}] Quick Reply API not found! Cannot fetch replies.`);
         chatQuickReplies = [];
         globalQuickReplies = [];
         return;
     }
 
-    // 3. 尝试获取数据 (主插件已启用)
+    const qrApi = window.quickReplyApi;
+    
+    // --- 新增检查 ---
+    // 检查 Quick Reply v2 扩展本身是否启用
+    // 只有明确为 false 才算禁用
+    if (!qrApi.settings || qrApi.settings.isEnabled === false) {
+        console.log(`[${EXTENSION_NAME}] Core Quick Reply v2 is disabled. Skipping reply fetch.`);
+        chatQuickReplies = [];
+        globalQuickReplies = [];
+        return;
+    }
+    // --- 检查结束 ---
+    
+    chatQuickReplies = [];
+    globalQuickReplies = [];
+    const chatQrLabels = new Set();
+
     try {
-        // Fetch Chat Quick Replies (来自 chatConfig)
+        // 获取聊天快捷回复
         if (qrApi.settings?.chatConfig?.setList) {
             qrApi.settings.chatConfig.setList.forEach(setLink => {
-                // 检查 setLink, setLink.set, setLink.set.qrList 是否有效
                 if (setLink?.isVisible && setLink.set?.qrList) {
                     setLink.set.qrList.forEach(qr => {
-                        // 检查 qr 对象存在，未隐藏，且有 label
                         if (qr && !qr.isHidden && qr.label) {
                             chatQuickReplies.push({
-                                setName: setLink.set.name || 'Unknown Chat Set', // 提供默认值
+                                setName: setLink.set.name || 'Unknown Set',
                                 label: qr.label,
                                 message: qr.message || '(无消息内容)'
                             });
-                            chatQrLabels.add(qr.label); // 记录聊天标签用于去重
+                            chatQrLabels.add(qr.label);
                         }
                     });
                 }
             });
         } else {
-             console.warn(`[${EXTENSION_NAME}] Could not find chatConfig.setList in quickReplyApi settings.`);
+            console.warn(`[${EXTENSION_NAME}] Could not find chatConfig.setList in quickReplyApi settings.`);
         }
 
-        // Fetch Global Quick Replies (来自 config)
+        // 获取全局快捷回复
         if (qrApi.settings?.config?.setList) {
             qrApi.settings.config.setList.forEach(setLink => {
-                // 检查 setLink, setLink.set, setLink.set.qrList 是否有效
                 if (setLink?.isVisible && setLink.set?.qrList) {
                     setLink.set.qrList.forEach(qr => {
-                        // 检查 qr 对象存在，未隐藏，有 label，且 label 未在聊天回复中出现
+                        // 仅添加非隐藏且标签不在聊天回复中存在的项
                         if (qr && !qr.isHidden && qr.label && !chatQrLabels.has(qr.label)) {
                             globalQuickReplies.push({
-                                setName: setLink.set.name || 'Unknown Global Set', // 提供默认值
+                                setName: setLink.set.name || 'Unknown Set',
                                 label: qr.label,
                                 message: qr.message || '(无消息内容)'
                             });
@@ -189,21 +181,19 @@ function updateQuickReplies() {
                 }
             });
         } else {
-             console.warn(`[${EXTENSION_NAME}] Could not find config.setList in quickReplyApi settings.`);
+            console.warn(`[${EXTENSION_NAME}] Could not find config.setList in quickReplyApi settings.`);
         }
 
-        console.log(`[${EXTENSION_NAME}] Updated Quick Replies - Chat: ${chatQuickReplies.length}, Global: ${globalQuickReplies.length}`);
-
+        console.log(`[${EXTENSION_NAME}] Fetched Quick Replies - Chat: ${chatQuickReplies.length}, Global: ${globalQuickReplies.length}`);
     } catch (error) {
         console.error(`[${EXTENSION_NAME}] Error fetching quick replies:`, error);
-        // 出错时清空数据，防止使用不完整或错误的数据
         chatQuickReplies = [];
         globalQuickReplies = [];
     }
 }
 
 /**
- * 渲染快捷回复到菜单 (逻辑不变, 使用 DocumentFragment 优化)
+ * 渲染快捷回复到菜单 (使用 DocumentFragment 优化)
  */
 function renderQuickReplies() {
     const chatContainer = document.getElementById('chat-qr-items');
@@ -237,58 +227,55 @@ function renderQuickReplies() {
 }
 
 /**
- * 辅助函数：创建单个快捷回复项的 DOM 元素 (逻辑不变)
+ * 辅助函数：创建单个快捷回复项的 DOM 元素
  */
 function createQuickReplyItem(qr) {
     const item = document.createElement('div');
     item.className = 'quick-reply-item';
     item.innerText = qr.label;
+    // Tooltip显示更长的消息预览
     const fullMessagePreview = `来自 "${qr.setName}":\n${qr.message}`;
     item.title = fullMessagePreview;
     item.addEventListener('click', () => {
-        triggerQuickReply(qr.setName, qr.label); // 调用重构后的触发函数
+        triggerQuickReply(qr.setName, qr.label);
         hideQuickReplyMenu();
     });
     return item;
 }
 
-
 /**
- * 触发指定的快捷回复 (使用 file_1 的检测逻辑重构)
+ * 触发指定的快捷回复
  */
 function triggerQuickReply(setName, label) {
-    // 1. 检查 API 是否存在
     if (!window.quickReplyApi) {
         console.error(`[${EXTENSION_NAME}] Quick Reply API not found! Cannot trigger reply.`);
-        return; // 无法触发，直接返回
+        return;
     }
 
-    // 2. 检查 Quick Reply v2 主插件是否启用
-    //    (注意：isEnabled=true 或 undefined 都视为启用)
+    // --- 新增检查 ---
+    // 触发前也检查主 Quick Reply v2 是否启用
     if (!window.quickReplyApi.settings || window.quickReplyApi.settings.isEnabled === false) {
-         console.log(`[${EXTENSION_NAME}] Core Quick Reply v2 is disabled. Cannot trigger reply "${setName}.${label}".`);
-         return; // 主插件禁用，不执行触发
+        console.log(`[${EXTENSION_NAME}] Core Quick Reply v2 is disabled. Cannot trigger reply.`);
+        return;
     }
+    // --- 检查结束 ---
 
-    // 3. 尝试触发 (主插件已启用)
     console.log(`[${EXTENSION_NAME}] Triggering Quick Reply: "${setName}.${label}"`);
     try {
-        // 保持原有的 Promise 处理方式
         window.quickReplyApi.executeQuickReply(setName, label)
             .then(result => {
-                console.log(`[${EXTENSION_NAME}] Quick Reply "${setName}.${label}" executed successfully:`, result);
+                console.log(`[${EXTENSION_NAME}] Quick Reply "${setName}.${label}" executed successfully.`);
             })
             .catch(error => {
                 console.error(`[${EXTENSION_NAME}] Failed to execute Quick Reply "${setName}.${label}":`, error);
             });
     } catch (error) {
-        // 处理同步错误，例如 executeQuickReply 方法本身不存在或调用时出错
-        console.error(`[${EXTENSION_NAME}] Error trying to call executeQuickReply for "${setName}.${label}":`, error);
+        console.error(`[${EXTENSION_NAME}] Error triggering quick reply:`, error);
     }
 }
 
 /**
- * 插件加载入口 (逻辑不变)
+ * 插件加载入口
  */
 jQuery(async () => {
     extension_settings[EXTENSION_NAME] = extension_settings[EXTENSION_NAME] || {};
@@ -303,7 +290,7 @@ jQuery(async () => {
             <div class="inline-drawer-content">
                 <p>此插件在发送按钮旁添加了一个🚀图标按钮，用于打开快速回复菜单。</p>
                 <p>顶部的 [关闭] 按钮用于关闭菜单，[切换] 按钮用于切换菜单的深色/浅色主题。</p>
-                <p><b>注意:</b> 菜单内容仅在首次打开时加载。如果主 Quick Reply v2 插件设置有变动，需要关闭菜单后重新打开此菜单以加载最新内容。</p>
+                <p><b>注意:</b> 菜单内容仅在首次打开时加载，如需更新请刷新页面或重新启用插件。</p>
                 <div class="flex-container flexGap5">
                     <label>插件状态:</label>
                     <select id="${EXTENSION_NAME}-enabled" class="text_pole">
@@ -343,17 +330,16 @@ jQuery(async () => {
 
         if (isEnabled) {
             rocketButton.show();
-            dataNeedsUpdate = true; // 启用时标记需要更新数据
+            dataNeedsUpdate = true;
         } else {
             rocketButton.hide();
-            hideQuickReplyMenu(); // 禁用时隐藏菜单
+            hideQuickReplyMenu();
         }
     });
 
-    // 初始化按钮状态
     const rocketButton = $('#quick-reply-rocket-button');
     if (extension_settings[EXTENSION_NAME].enabled !== false) {
-        extension_settings[EXTENSION_NAME].enabled = true; // 默认或未设置时视为启用
+        extension_settings[EXTENSION_NAME].enabled = true;
         $(`#${EXTENSION_NAME}-enabled`).val('true');
         rocketButton.show();
     } else {
