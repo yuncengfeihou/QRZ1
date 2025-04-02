@@ -54,6 +54,7 @@ export async function handleQuickReplyClick(event) {
     updateMenuVisibilityUI();
 }
 
+
 /**
  * Sets up all event listeners for the plugin.
  */
