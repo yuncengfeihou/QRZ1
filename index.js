@@ -2,9 +2,31 @@
 import { extension_settings } from "../../../extensions.js";
 import * as Constants from './constants.js';
 import { sharedState } from './state.js';
-import { createMenuElement, createRocketButton } from './ui.js';
+import { createMenuElement } from './ui.js';
 import { createSettingsHtml, loadAndApplySettings } from './settings.js';
 import { setupEventListeners } from './events.js';
+
+/**
+ * Injects the rocket button next to the send button
+ * @returns {HTMLElement|null} The created rocket button or null if send button wasn't found
+ */
+function injectRocketButton() {
+    // Find the send button in the UI
+    const sendButton = $('#send_but');
+    if (sendButton.length === 0) {
+        console.error(`[${Constants.EXTENSION_NAME}] Could not find send button to inject rocket button`);
+        return null;
+    }
+    
+    // Create the rocket button HTML
+    const rocketButtonHtml = `<div id="${Constants.ID_ROCKET_BUTTON}" class="fa-solid fa-rocket interactable secondary-button" title="快速回复菜单" aria-haspopup="true" aria-expanded="false" aria-controls="${Constants.ID_MENU}"></div>`;
+    
+    // Insert the rocket button before the send button
+    sendButton.before(rocketButtonHtml);
+    
+    // Return the reference to the newly created button
+    return document.getElementById(Constants.ID_ROCKET_BUTTON);
+}
 
 /**
  * Initializes the plugin: creates UI, sets up listeners, loads settings.
@@ -12,19 +34,11 @@ import { setupEventListeners } from './events.js';
 function initializePlugin() {
     console.log(`[${Constants.EXTENSION_NAME}] Initializing...`);
 
+    // Create and inject the rocket button
+    const rocketButton = injectRocketButton();
+    
     // Create menu element
     const menu = createMenuElement();
-
-    // Find the send button to place our rocket button next to it
-    const sendButton = $('#send_but');
-    if (sendButton.length === 0) {
-        console.error(`[${Constants.EXTENSION_NAME}] Could not find send button to attach rocket button`);
-        return;
-    }
-
-    // Create and inject the rocket button before the send button
-    const rocketButton = createRocketButton();
-    sendButton.before(rocketButton);
 
     // Store references in shared state
     sharedState.domElements.rocketButton = rocketButton;
@@ -44,6 +58,7 @@ function initializePlugin() {
 
     console.log(`[${Constants.EXTENSION_NAME}] Initialization complete.`);
 }
+
 
 // --- SillyTavern Extension Entry Point ---
 jQuery(async () => {
